@@ -1,0 +1,10 @@
+runtime: go
+api_version: go1
+
+env: standard
+module: default
+threadsafe: false
+instance_class: F1
+handlers:
+  - url: '/.*'
+    script: _go_app
