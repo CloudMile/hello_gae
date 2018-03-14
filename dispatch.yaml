@@ -1,0 +1,6 @@
+dispatch:
+  - url: "gae.<YOUR_DOMAIN>/*"
+    service: default
+
+  - url: "bear.<YOUR_DOMAIN>/*"
+    service: bear
