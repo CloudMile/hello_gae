@@ -9,6 +9,8 @@
   - git checkout origin custom_domain_and_ssl
 - Part 4 Datastore and Memcache
   - git checkout origin datastore_memcache
+- Part 5 Queue and Cron Job
+  - git checkout origin queue_and_cronjob
 
 ## Deploy to GAE
 install [gcloud SDK](https://cloud.google.com/sdk/downloads) before
@@ -44,3 +46,7 @@ const (
 ```
 change <DATASTORE_KIND> and <SET_YOUR_KEY> to you want
 if want to use GAE memcache, please enable `IsUsingMemcache` and also change `3600` to you need
+
+## For Part5
+### Snapshot GCE Instance Disks with GAE Cron Job
+using GAE cron job and queue to call the GCP apis to create snapshot for all of instances.
