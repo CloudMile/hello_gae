@@ -9,30 +9,19 @@
   - git checkout origin custom_domain_and_ssl
 - Part 4 Datastore and Memcache
   - git checkout origin datastore_memcache
+- Part 5 Queue and Cron Job
+  - git checkout origin queue_and_cronjob
 
-## Set up Datastore
-```
-$ vim app.go
-```
+## Snapshot GCE Instance Disks with GAE Cron Job
+using GAE cron job and queue to call the GCP apis to create snapshot for all of instances.
 
+## Deploy
 ```
-const (
-	GAEEntityKind      = "<DATASTORE_KIND>"
-	HelloKey           = "<SET_YOUR_KEY>"
-	IsUsingMemcache    = false
-	MemcacheExprieTime = time.Duration(3600) * time.Second
-)
-
+$ gcloud app deploy app.yaml cron.yaml queue.yaml
 ```
-change <DATASTORE_KIND> and <SET_YOUR_KEY> to you want
-if want to use GAE memcache, please enable `IsUsingMemcache` and also change `3600` to you need
-
-## Deploy to GAE
-install [gcloud SDK](https://cloud.google.com/sdk/downloads) before
+or
 ```
-$ gcloud app deploy
-```
-### deploy with version
-```
-$ gcloud app deploy -v <YOUR_VERSION>
+$ gcloud app deploy app.yaml
+$ gcloud app deploy cron.yaml
+$ gcloud app deploy queue.yaml
 ```

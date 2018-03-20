@@ -2,9 +2,16 @@ runtime: go
 api_version: go1
 
 env: standard
-service: datastore
+service: default
 threadsafe: false
 instance_class: F1
 handlers:
+  - url: /cron/worker/.*
+    script: _go_app
+    login: admin
+
   - url: '/.*'
     script: _go_app
+
+env_variables:
+  PROJECT_ID: "<YOUR_PROJECT_ID>" # only work for localhost test

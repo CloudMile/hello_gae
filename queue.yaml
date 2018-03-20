@@ -1,0 +1,6 @@
+queue:
+- name: create-snapshot
+  rate: 5/s
+
+# - name: qull-example
+#   mode: pull
