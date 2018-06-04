@@ -1,4 +1,4 @@
 cron:
 - description: "Snapshot Your Instance"
   url: /cron/snapshot
-  schedule: every 24 hours synchronized
+  schedule: every day 20:00
