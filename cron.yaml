@@ -1,4 +1,10 @@
 cron:
-- description: "Snapshot Your Instance"
+- description: "Snapshot Your All Disks"
   url: /cron/snapshot
-  schedule: every day 20:00
+  schedule: every day 20:00 #UTC
+  target: snapshot
+
+- description: "Snapshot Your Disks with labels test:group-a"
+  url: "/cron/snapshot?filter=labels.test%3Agroup-a"
+  schedule: every day 21:00 #UTC
+  target: snapshot

@@ -25,8 +25,9 @@ func cronHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := appengine.NewContext(r)
+	log.Infof(ctx, "query: %v", r.URL.Query())
 
-	t := taskqueue.NewPOSTTask("/cron/worker", map[string][]string{})
+	t := taskqueue.NewPOSTTask("/cron/worker", r.URL.Query())
 	if _, err := taskqueue.Add(ctx, t, "create-snapshot"); err != nil {
 		errorHandler(w, r, http.StatusInternalServerError)
 		return
@@ -39,6 +40,9 @@ func workHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := appengine.NewContext(r)
+	filterParams := r.PostFormValue("filter")
+	log.Infof(ctx, "filter: %v", filterParams)
+
 	client := &http.Client{
 		Transport: &oauth2.Transport{
 			Source: google.AppEngineTokenSource(ctx, "https://www.googleapis.com/auth/compute"),
@@ -48,7 +52,7 @@ func workHandle(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	gceZoneList := getGCEZone(ctx, *client)
-	rangeDiskZone(ctx, *client, gceZoneList)
+	rangeDiskZone(ctx, *client, gceZoneList, filterParams)
 }
 
 func errorHandler(w http.ResponseWriter, r *http.Request, status int) {
@@ -77,9 +81,15 @@ func getGCEZone(ctx context.Context, client http.Client) (gceZoneList GCEZoneLis
 	return
 }
 
-func rangeDiskZone(ctx context.Context, client http.Client, gceZoneList GCEZoneList) {
+func rangeDiskZone(ctx context.Context, client http.Client, gceZoneList GCEZoneList, filterParams string) {
 	for _, zone := range gceZoneList.Items {
-		url := "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone.Name + "/disks"
+		url := ""
+		if filterParams != "" {
+			url = "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone.Name + "/disks?filter=" + filterParams
+		} else {
+			url = "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone.Name + "/disks"
+		}
+
 		log.Infof(ctx, "url: %v", url)
 		resp, err := client.Get(url)
 		if err != nil {
