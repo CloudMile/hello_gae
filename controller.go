@@ -1,11 +1,8 @@
 package app
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -13,6 +10,7 @@ import (
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/appengine"
 	"google.golang.org/appengine/log"
 	"google.golang.org/appengine/taskqueue"
@@ -51,8 +49,14 @@ func workHandle(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
-	gceZoneList := getGCEZone(ctx, *client)
-	rangeDiskZone(ctx, *client, gceZoneList, filterParams)
+	computeService, err := compute.New(client)
+	if err != nil {
+		log.Errorf(ctx, "compute error: %s", err)
+	}
+
+	gceZoneList := getGCEZone(ctx, computeService)
+	gceDiksMap := rangeDiskZone(ctx, computeService, gceZoneList, filterParams)
+	rangeCreateSnapshot(ctx, computeService, gceDiksMap)
 }
 
 func errorHandler(w http.ResponseWriter, r *http.Request, status int) {
@@ -67,57 +71,57 @@ func errorHandler(w http.ResponseWriter, r *http.Request, status int) {
 	}
 }
 
-func getGCEZone(ctx context.Context, client http.Client) (gceZoneList GCEZoneList) {
-	url := "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones"
-	log.Infof(ctx, "url: %v", url)
-	resp, err := client.Get(url)
-	if err != nil {
-		log.Errorf(ctx, "resp error: %s", err)
+func getGCEZone(ctx context.Context, computeService *compute.Service) (gceZoneList []string) {
+	req := computeService.Zones.List(getProjectID(ctx))
+
+	if err := req.Pages(ctx, func(page *compute.ZoneList) error {
+		for _, zone := range page.Items {
+			gceZoneList = append(gceZoneList, zone.Name)
+		}
+		return nil
+	}); err != nil {
+		log.Errorf(ctx, "compute.ZoneList error: %s", err)
 	}
-	defer resp.Body.Close()
-	bodyBytes, _ := ioutil.ReadAll(resp.Body)
-	gceZoneList = GCEZoneList{}
-	json.Unmarshal(bodyBytes, &gceZoneList)
 	return
 }
 
-func rangeDiskZone(ctx context.Context, client http.Client, gceZoneList GCEZoneList, filterParams string) {
-	for _, zone := range gceZoneList.Items {
-		url := ""
+func rangeDiskZone(ctx context.Context, computeService *compute.Service, gceZoneList []string, filterParams string) (gceDiksMap map[string][]string) {
+	projectID := getProjectID(ctx)
+	gceDiksMapTemp := make(map[string][]string)
+
+	for _, zoneName := range gceZoneList {
+		req := computeService.Disks.List(projectID, zoneName)
 		if filterParams != "" {
-			url = "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone.Name + "/disks?filter=" + filterParams
-		} else {
-			url = "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone.Name + "/disks"
+			req = req.Filter(filterParams)
 		}
-
-		log.Infof(ctx, "url: %v", url)
-		resp, err := client.Get(url)
-		if err != nil {
-			log.Errorf(ctx, "resp error: %s", err)
+		if err := req.Pages(ctx, func(page *compute.DiskList) error {
+			for _, disk := range page.Items {
+				if len(disk.Users) > 0 {
+					gceDiksMapTemp[zoneName] = append(gceDiksMapTemp[zoneName], disk.Name)
+				}
+			}
+			return nil
+		}); err != nil {
+			log.Errorf(ctx, "compute.DiskList error: %s", err)
 		}
-		defer resp.Body.Close()
-		bodyBytes, _ := ioutil.ReadAll(resp.Body)
-		gceDisk := GCEDisk{}
-		json.Unmarshal(bodyBytes, &gceDisk)
-
-		rangeCreateSnapshot(ctx, client, zone.Name, gceDisk)
 	}
+	return gceDiksMapTemp
 }
 
-func rangeCreateSnapshot(ctx context.Context, client http.Client, zone string, gceDisk GCEDisk) {
+func rangeCreateSnapshot(ctx context.Context, computeService *compute.Service, gceDiksMap map[string][]string) {
+	projectID := getProjectID(ctx)
 	t := time.Now()
 	tString := strings.ToLower(t.Format("06010215MST"))
 
-	for _, diskItem := range gceDisk.Items {
-		log.Infof(ctx, "name: %v", diskItem.Name)
-		if len(diskItem.Users) > 0 {
-			createSnapshotURL := "https://www.googleapis.com/compute/v1/projects/" + getProjectID(ctx) + "/zones/" + zone + "/disks/" + diskItem.Name + "/createSnapshot"
-			log.Infof(ctx, "createSnapshotURL: %v", createSnapshotURL)
-			jsonString := `{"name":"` + diskItem.Name + "-" + tString + `"}`
-			log.Infof(ctx, "jsonString: %v", jsonString)
-			_, err := client.Post(createSnapshotURL, "application/json", bytes.NewBuffer([]byte(jsonString)))
+	for zoneName, gceDiskList := range gceDiksMap {
+		for _, diskName := range gceDiskList {
+			rb := &compute.Snapshot{
+				Name: diskName + `-` + tString,
+			}
+			log.Infof(ctx, "create snapshot: %s => %s", zoneName, diskName)
+			_, err := computeService.Disks.CreateSnapshot(projectID, zoneName, diskName, rb).Context(ctx).Do()
 			if err != nil {
-				log.Errorf(ctx, "resp error: %s", err)
+				log.Errorf(ctx, "CreateSnapshot error: %s", err)
 			}
 		}
 	}
