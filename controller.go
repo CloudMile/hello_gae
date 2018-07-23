@@ -43,7 +43,7 @@ func workHandle(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{
 		Transport: &oauth2.Transport{
-			Source: google.AppEngineTokenSource(ctx, "https://www.googleapis.com/auth/compute"),
+			Source: google.AppEngineTokenSource(ctx, compute.ComputeScope),
 			Base: &urlfetch.Transport{
 				Context: ctx,
 			},
