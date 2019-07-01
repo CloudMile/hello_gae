@@ -1,10 +1,8 @@
-runtime: go
-api_version: go1
+runtime: go111
 
 env: standard
 service: datastore
-threadsafe: false
 instance_class: F1
 handlers:
   - url: '/.*'
-    script: _go_app
+    script: auto
