@@ -2,13 +2,15 @@
 
 This is a project for _Getting Start for GAE_
 
-## Clone This Project
+## UPDATE
+- [20190701] update to GAE runtime go111
 
+## Clone This Project
 ```shell
 git clone git@github.com:CloudMile/hello_gae.git
 ```
 
-You can checkout the different branch to different chapter.
+You can checkout the different branch to different chapter.
 
 - Part 1 HelloWorld
   - `git checkout origin hello-world`
